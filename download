@@ -1,0 +1,96 @@
+# ============================================================
+#  ADS · Agência Digital & Sites
+#  Segurança, HTTPS e velocidade
+# ============================================================
+
+# ---------- 1. Tudo vira HTTPS ----------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # sem www
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# ---------- 2. Cabeçalhos de proteção ----------
+<IfModule mod_headers.c>
+  # obriga navegador a só entrar por HTTPS, por 1 ano
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+  # ninguém pode colocar o site dentro de uma moldura (clickjacking)
+  Header always set X-Frame-Options "DENY"
+
+  # navegador não pode "adivinhar" o tipo do arquivo
+  Header always set X-Content-Type-Options "nosniff"
+
+  # o que sai de informação quando alguém clica num link de saída
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # câmera, microfone, localização e afins: desligados
+  Header always set Permissions-Policy "accelerometer=(), autoplay=(self), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), interest-cohort=()"
+
+  # o que pode rodar dentro da página. bloqueia injeção de código
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; media-src 'self' blob:; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; form-action 'none'; upgrade-insecure-requests"
+
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Resource-Policy "same-origin"
+  Header always set X-Permitted-Cross-Domain-Policies "none"
+
+  # esconde qual servidor está rodando
+  Header unset X-Powered-By
+  Header unset Server
+</IfModule>
+
+# ---------- 3. Nada de listar pastas ----------
+Options -Indexes -MultiViews
+
+# ---------- 4. Arquivos escondidos ficam escondidos ----------
+<FilesMatch "^\.|(\.(bak|config|dist|fla|inc|ini|log|psd|sh|sql|swp|zip|md|json|yml))$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# ---------- 5. Compressão ----------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml application/xml
+</IfModule>
+
+# ---------- 6. Cache ----------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType video/mp4 "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|jpg|jpeg|png|svg|mp4|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# ---------- 7. Tipos ----------
+<IfModule mod_mime.c>
+  AddType video/mp4 .mp4
+  AddType image/svg+xml .svg
+  AddType application/manifest+json .webmanifest
+</IfModule>
+
+# ---------- 8. Erro 404 volta pro início ----------
+ErrorDocument 404 /index.html
